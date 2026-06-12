@@ -48,9 +48,11 @@ server {
     server_name _;
 
     location / {
-        # Por si la respuesta es un error generado por el propio NGINX
-        # (502/504 de un puente caído) y no por Flask: sin esto, el
-        # navegador reporta "CORS" en vez del error real.
+        # Aseguramos un único Access-Control-Allow-Origin: si viene de
+        # Flask se descarta (proxy_hide_header) y NGINX pone el suyo,
+        # tanto en respuestas normales como en errores propios de NGINX
+        # (502/504 de un puente caído). Evita el error "multiple values '*, *'".
+        proxy_hide_header Access-Control-Allow-Origin;
         add_header Access-Control-Allow-Origin "*" always;
 
         proxy_pass http://techstore_apis;
