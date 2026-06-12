@@ -1,9 +1,14 @@
 # ============================================================
-# TECHSTORE 360 - Balanceador NGINX, levantable con 1 comando.
-# Lee nginx.env, sustituye RENDER_API_1/2 en nginx.conf.template
-# y arranca nginx en el puerto 80.
+# TECHSTORE 360 – Balanceador Nginx
 #
-# Uso:  docker compose up -d
+# IMPORTANTE: para que los puertos configurables funcionen,
+# levantá con:
+#   docker compose --env-file nginx.env up -d
+#
+# Puertos (configurables en nginx.env):
+#   :80            → API REST  (Render 1 + Render 2)
+#   :${WP_LB_PORT}     → WordPress (VM1 + VM2)   — default 8080
+#   :${JOOMLA_LB_PORT} → Joomla    (VM1 + VM2)   — default 8088
 # ============================================================
 services:
   nginx:
@@ -11,12 +16,17 @@ services:
     container_name: techstore-nginx
     ports:
       - "80:80"
+      - "${WP_LB_PORT:-8080}:${WP_LB_PORT:-8080}"
+      - "${JOOMLA_LB_PORT:-8088}:${JOOMLA_LB_PORT:-8088}"
     env_file:
       - nginx.env
     volumes:
       - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
     command: >
-      /bin/sh -c "envsubst '$$RENDER_API_1 $$RENDER_API_2'
+      /bin/sh -c "envsubst
+      '$$RENDER_API_1 $$RENDER_API_2
+       $$WP_VM1 $$WP_VM2 $$WP_PORT $$WP_LB_PORT
+       $$JOOMLA_VM1 $$JOOMLA_VM2 $$JOOMLA_PORT $$JOOMLA_LB_PORT'
       < /etc/nginx/templates/default.conf.template
       > /etc/nginx/conf.d/default.conf
       && nginx -g 'daemon off;'"
