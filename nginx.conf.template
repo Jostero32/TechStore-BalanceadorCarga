@@ -1,0 +1,67 @@
+# ============================================================
+# TECHSTORE 360 - Balanceador NGINX (requerimiento 4)
+# Balanceo de carga + failover automático entre Render 1 y 2.
+#
+# Plantilla para envsubst (ver docker-compose.yml de esta carpeta):
+# las variables ${RENDER_API_1} / ${RENDER_API_2} se sustituyen con
+# los valores de nginx.env al arrancar el contenedor.
+#
+# Truco: Render enruta por cabecera Host, y un upstream no puede
+# cambiar el Host por servidor. Solución: dos "puentes" locales
+# (8081 -> Render 1, 8082 -> Render 2) y el upstream balancea
+# entre ellos con detección de fallos (max_fails/fail_timeout).
+# ============================================================
+
+upstream techstore_apis {
+    # round-robin entre las dos APIs (balanceo de carga)
+    server 127.0.0.1:8081 max_fails=2 fail_timeout=10s;  # -> ${RENDER_API_1}
+    server 127.0.0.1:8082 max_fails=2 fail_timeout=10s;  # -> ${RENDER_API_2}
+}
+
+# --------- Puente hacia API REST - RENDER 1 ---------
+server {
+    listen 127.0.0.1:8081;
+    location / {
+        proxy_pass https://${RENDER_API_1};
+        proxy_set_header Host ${RENDER_API_1};
+        proxy_ssl_server_name on;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+}
+
+# --------- Puente hacia API REST - RENDER 2 ---------
+server {
+    listen 127.0.0.1:8082;
+    location / {
+        proxy_pass https://${RENDER_API_2};
+        proxy_set_header Host ${RENDER_API_2};
+        proxy_ssl_server_name on;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+}
+
+# --------- Punto de entrada público del balanceador ---------
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://techstore_apis;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # FAILOVER AUTOMÁTICO: si una instancia falla o no responde,
+        # NGINX reintenta inmediatamente en la otra.
+        proxy_next_upstream error timeout http_500 http_502 http_503 http_504;
+        proxy_next_upstream_tries 2;
+    }
+
+    # Salud del propio balanceador (no de los backends)
+    location /health {
+        return 200 'ok';
+        add_header Content-Type text/plain;
+    }
+}

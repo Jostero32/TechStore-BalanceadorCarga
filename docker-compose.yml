@@ -1,0 +1,23 @@
+# ============================================================
+# TECHSTORE 360 - Balanceador NGINX, levantable con 1 comando.
+# Lee nginx.env, sustituye RENDER_API_1/2 en nginx.conf.template
+# y arranca nginx en el puerto 80.
+#
+# Uso:  docker compose up -d
+# ============================================================
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: techstore-nginx
+    ports:
+      - "80:80"
+    env_file:
+      - nginx.env
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    command: >
+      /bin/sh -c "envsubst '$$RENDER_API_1 $$RENDER_API_2'
+      < /etc/nginx/templates/default.conf.template
+      > /etc/nginx/conf.d/default.conf
+      && nginx -g 'daemon off;'"
+    restart: unless-stopped

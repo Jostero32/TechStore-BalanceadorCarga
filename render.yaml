@@ -1,0 +1,16 @@
+# Blueprint de Render para el balanceador NGINX (requisito 4).
+# https://render.com -> New -> Blueprint -> apuntar a este repositorio
+# (este repo ES nginx, sin subcarpetas: no se usa rootDir)
+services:
+  - type: web
+    name: techstore-balanceador
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # Hostnames de techstore-api-1 / techstore-api-2 (SIN https:// ni / final).
+      # Verifica el valor real en el dashboard de cada servicio (Settings -> URL)
+      # y actualízalo aquí si Render le agregó un sufijo (ej. -zvn6).
+      - key: RENDER_API_1
+        value: techstore-api-1.onrender.com
+      - key: RENDER_API_2
+        value: techstore-api-2.onrender.com
